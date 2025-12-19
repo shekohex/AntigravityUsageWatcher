@@ -6,6 +6,7 @@ import Foundation
 import Network
 import os
 import Security
+import SwiftUI
 
 enum AppLog {
     static let subsystem = Bundle.main.bundleIdentifier ?? "com.github.shekohex.AntigravityUsageWatcher"
@@ -68,9 +69,82 @@ private extension String {
 final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
     private var statusItem: NSStatusItem?
     private let model = AppModel()
-    private let dashboardWindow = DashboardWindowController()
+    private let settingsWindow = SettingsWindowController()
 
     private let menu = NSMenu()
+    private var isMenuOpen = false
+    private var defaultsCancellable: AnyCancellable?
+
+    private lazy var statusContentHostingView: NSHostingView<StatusMenuView> = {
+        let hosting = NSHostingView(rootView: StatusMenuView(model: model))
+        let size = hosting.fittingSize
+        hosting.frame = NSRect(origin: .zero, size: NSSize(width: 360, height: max(1, size.height)))
+        return hosting
+    }()
+
+    private lazy var statusContentItem: NSMenuItem = {
+        let item = NSMenuItem()
+        item.view = statusContentHostingView
+        return item
+    }()
+
+    private lazy var refreshItem = makeMenuItem(
+        title: "Refresh Now",
+        systemImage: "arrow.clockwise",
+        action: #selector(refreshNow),
+        keyEquivalent: "r"
+    )
+
+    private lazy var switchAccountItem = makeMenuItem(
+        title: "Switch Account…",
+        systemImage: "person.crop.circle",
+        action: #selector(switchAccount),
+        keyEquivalent: ""
+    )
+
+    private lazy var pinRootItem: NSMenuItem = {
+        let item = NSMenuItem(title: "Pin Model", action: nil, keyEquivalent: "")
+        item.image = NSImage(systemSymbolName: "pin", accessibilityDescription: nil)
+        menu.setSubmenu(pinMenu, for: item)
+        return item
+    }()
+
+    private let pinMenu = NSMenu()
+
+    private lazy var settingsItem = makeMenuItem(
+        title: "Settings…",
+        systemImage: "gearshape",
+        action: #selector(openSettings),
+        keyEquivalent: ","
+    )
+
+    private lazy var aboutItem = makeMenuItem(
+        title: "About…",
+        systemImage: "info.circle",
+        action: #selector(openAbout),
+        keyEquivalent: ""
+    )
+
+    private lazy var signInItem = makeMenuItem(
+        title: "Sign in with Google…",
+        systemImage: "person.crop.circle.badge.plus",
+        action: #selector(signIn),
+        keyEquivalent: "s"
+    )
+
+    private lazy var signOutItem = makeMenuItem(
+        title: "Sign Out",
+        systemImage: "person.crop.circle.badge.xmark",
+        action: #selector(signOut),
+        keyEquivalent: ""
+    )
+
+    private lazy var quitItem = makeMenuItem(
+        title: "Quit",
+        systemImage: "power",
+        action: #selector(quit),
+        keyEquivalent: "q"
+    )
 
     func applicationDidFinishLaunching(_ notification: Notification) {
         AppLog.app.info("App launched (verbose=\(AppLog.isVerboseEnabled, privacy: .public))")
@@ -79,11 +153,28 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
 
         model.onUpdate = { [weak self] in
             self?.applyStatusBarPresentation()
+            self?.updateMenuItems()
         }
+
+        defaultsCancellable = NotificationCenter.default.publisher(for: UserDefaults.didChangeNotification)
+            .receive(on: RunLoop.main)
+            .sink { [weak self] _ in
+                self?.applyStatusBarPresentation()
+                self?.updateMenuItems()
+            }
 
         Task {
             await model.bootstrap()
         }
+    }
+
+    private func statusBarUsageImage() -> NSImage? {
+        if let image = NSImage(named: "StatusBarIcon") {
+            image.isTemplate = true
+            return image
+        }
+
+        return NSImage(systemSymbolName: "gauge.with.needle", accessibilityDescription: "Antigravity Usage")
     }
 
     private func setupStatusBar() {
@@ -91,15 +182,19 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
         statusItem = statusBar.statusItem(withLength: NSStatusItem.variableLength)
 
         if let button = statusItem?.button {
-            button.image = NSImage(systemSymbolName: "gauge.with.needle", accessibilityDescription: "Antigravity Usage")
+            button.image = statusBarUsageImage()
             button.title = ""
             button.toolTip = "Antigravity Usage"
         }
 
+
         menu.delegate = self
+        menu.autoenablesItems = false
+        configureMenu()
         statusItem?.menu = menu
 
         applyStatusBarPresentation()
+        updateMenuItems()
     }
 
     private func applyStatusBarPresentation() {
@@ -107,15 +202,36 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
             return
         }
 
-        if let snapshot = model.snapshot, let primary = snapshot.primaryModel {
-            button.image = nil
-            button.title = "\(primary.shortName) \(primary.remainingPercent)%"
+        if let snapshot = model.snapshot {
+            let pinned = model.pinnedModelId
+            let hidden = AppSettings.hiddenModelIds()
+            let visibleModels = snapshot.modelsSortedForDisplay.filter { quota in
+                if let pinned, quota.modelId == pinned {
+                    return true
+                }
+                return !hidden.contains(quota.modelId)
+            }
+
+            let primary = visibleModels.first
+
+            if AppSettings.showStatusText, let primary {
+                button.image = nil
+                button.title = "\(primary.shortName) \(primary.remainingPercent)%"
+            } else {
+                button.image = statusBarUsageImage()
+                button.title = ""
+            }
+
             button.toolTip = snapshot.tooltipText
 
-            if primary.isExhausted || primary.remainingPercent < 15 {
-                button.contentTintColor = .systemRed
-            } else if primary.remainingPercent < 25 {
-                button.contentTintColor = .systemOrange
+            if let primary {
+                if primary.isExhausted || primary.remainingPercent < 15 {
+                    button.contentTintColor = .systemRed
+                } else if primary.remainingPercent < 25 {
+                    button.contentTintColor = .systemOrange
+                } else {
+                    button.contentTintColor = nil
+                }
             } else {
                 button.contentTintColor = nil
             }
@@ -126,7 +242,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
         button.contentTintColor = nil
 
         if model.isSignedIn {
-            button.image = NSImage(systemSymbolName: "gauge.with.needle", accessibilityDescription: "Antigravity Usage")
+            button.image = statusBarUsageImage()
             button.title = ""
 
             if model.isRefreshing {
@@ -144,74 +260,92 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
     }
 
     func menuWillOpen(_ menu: NSMenu) {
-        rebuildMenu()
+        isMenuOpen = true
+        rebuildPinMenu()
+        updateMenuItems()
+
+        let size = statusContentHostingView.fittingSize
+        statusContentHostingView.frame.size = NSSize(width: 360, height: max(1, size.height))
     }
 
-    private func rebuildMenu() {
-        menu.removeAllItems()
+    func menuDidClose(_ menu: NSMenu) {
+        isMenuOpen = false
+    }
 
-        if !model.isSignedIn {
-            menu.addItem(NSMenuItem(title: "Sign in with Google…", action: #selector(signIn), keyEquivalent: "s"))
-            menu.addItem(NSMenuItem.separator())
-            menu.addItem(NSMenuItem(title: "Quit", action: #selector(NSApplication.terminate(_:)), keyEquivalent: "q"))
+    private func configureMenu() {
+        menu.removeAllItems()
+        menu.addItem(statusContentItem)
+        menu.addItem(NSMenuItem.separator())
+        menu.addItem(refreshItem)
+        menu.addItem(switchAccountItem)
+        menu.addItem(pinRootItem)
+        menu.addItem(NSMenuItem.separator())
+        menu.addItem(settingsItem)
+        menu.addItem(aboutItem)
+        menu.addItem(NSMenuItem.separator())
+        menu.addItem(signInItem)
+        menu.addItem(signOutItem)
+        menu.addItem(quitItem)
+    }
+
+    private func updateMenuItems() {
+        refreshItem.isHidden = !model.isSignedIn
+        refreshItem.isEnabled = model.isSignedIn && !model.isRefreshing
+
+        switchAccountItem.isHidden = !model.isSignedIn
+        switchAccountItem.isEnabled = model.isSignedIn && !model.isRefreshing
+
+        let hasModels = (model.snapshot?.models.isEmpty == false)
+        pinRootItem.isHidden = !(model.isSignedIn && hasModels)
+        pinRootItem.isEnabled = !pinRootItem.isHidden
+
+        signInItem.isHidden = model.isSignedIn
+        signInItem.isEnabled = !model.isSignedIn && !model.isRefreshing
+
+        signOutItem.isHidden = !model.isSignedIn
+        signOutItem.isEnabled = model.isSignedIn
+
+        if isMenuOpen {
+            menu.update()
+        }
+    }
+
+    private func rebuildPinMenu() {
+        pinMenu.removeAllItems()
+
+        guard let snapshot = model.snapshot, !snapshot.models.isEmpty else {
             return
         }
 
-        menu.addItem(NSMenuItem(title: "Open Dashboard…", action: #selector(openDashboard), keyEquivalent: "d"))
-        menu.addItem(NSMenuItem(title: "Refresh Now", action: #selector(refreshNow), keyEquivalent: "r"))
-
-        if let pinned = model.pinnedModelId {
-            let item = NSMenuItem(title: "Unpin Model (\(pinned))", action: #selector(unpinModel), keyEquivalent: "u")
-            menu.addItem(item)
+        if model.pinnedModelId != nil {
+            pinMenu.addItem(makeMenuItem(
+                title: "Unpin",
+                systemImage: "pin.slash",
+                action: #selector(unpinModel),
+                keyEquivalent: ""
+            ))
+            pinMenu.addItem(NSMenuItem.separator())
         }
 
-        menu.addItem(NSMenuItem.separator())
+        let hidden = AppSettings.hiddenModelIds()
 
-        if let snapshot = model.snapshot {
-            if let creditsLine = snapshot.promptCreditsLine {
-                let credits = NSMenuItem(title: creditsLine, action: nil, keyEquivalent: "")
-                credits.isEnabled = false
-                menu.addItem(credits)
-                menu.addItem(NSMenuItem.separator())
+        for quota in snapshot.models {
+            if hidden.contains(quota.modelId), quota.modelId != model.pinnedModelId {
+                continue
             }
 
-            for quota in snapshot.modelsSortedForDisplay {
-                let title = "\(quota.label): \(quota.remainingPercent)%\(quota.timeUntilReset.map { " · \($0)" } ?? "")"
-                let item = NSMenuItem(title: title, action: nil, keyEquivalent: "")
-                item.isEnabled = false
-                menu.addItem(item)
-            }
-
-            if !snapshot.models.isEmpty {
-                menu.addItem(NSMenuItem.separator())
-                let pinMenu = NSMenu(title: "Pin Model")
-                for quota in snapshot.models {
-                    let item = NSMenuItem(title: quota.label, action: #selector(pinModel(_:)), keyEquivalent: "")
-                    item.representedObject = quota.modelId
-                    pinMenu.addItem(item)
-                }
-                let pinRoot = NSMenuItem(title: "Pin Model", action: nil, keyEquivalent: "")
-                menu.setSubmenu(pinMenu, for: pinRoot)
-                menu.addItem(pinRoot)
-            }
-        } else {
-            let title: String
-            if model.isRefreshing {
-                title = "Loading…"
-            } else if let error = model.lastErrorMessage {
-                title = "Error: \(error)"
-            } else {
-                title = "No data yet"
-            }
-
-            let item = NSMenuItem(title: title, action: nil, keyEquivalent: "")
-            item.isEnabled = false
-            menu.addItem(item)
+            let item = NSMenuItem(title: quota.label, action: #selector(pinModel(_:)), keyEquivalent: "")
+            item.representedObject = quota.modelId
+            item.state = (quota.modelId == model.pinnedModelId) ? .on : .off
+            pinMenu.addItem(item)
         }
+    }
 
-        menu.addItem(NSMenuItem.separator())
-        menu.addItem(NSMenuItem(title: "Sign Out", action: #selector(signOut), keyEquivalent: ""))
-        menu.addItem(NSMenuItem(title: "Quit", action: #selector(NSApplication.terminate(_:)), keyEquivalent: "q"))
+    private func makeMenuItem(title: String, systemImage: String, action: Selector?, keyEquivalent: String) -> NSMenuItem {
+        let item = NSMenuItem(title: title, action: action, keyEquivalent: keyEquivalent)
+        item.target = self
+        item.image = NSImage(systemSymbolName: systemImage, accessibilityDescription: nil)
+        return item
     }
 
     @objc private func signIn() {
@@ -226,20 +360,41 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
         }
     }
 
+    @objc private func quit() {
+        Task { [model] in
+            await model.prepareForQuit()
+            NSApp.terminate(nil)
+        }
+    }
+
     @objc private func refreshNow() {
         Task {
             await model.refreshNow()
         }
     }
 
-    @objc private func openDashboard() {
-        dashboardWindow.show(model: model)
+    @objc private func switchAccount() {
+        Task {
+            await model.signOut()
+            await model.signIn()
+        }
+    }
+
+    @objc private func openSettings() {
+        AppSettings.setSelectedSettingsTab(.general)
+        settingsWindow.show()
+    }
+
+    @objc private func openAbout() {
+        AppSettings.setSelectedSettingsTab(.about)
+        settingsWindow.show()
     }
 
     @objc private func pinModel(_ sender: NSMenuItem) {
         guard let modelId = sender.representedObject as? String else {
             return
         }
+        AppSettings.setModelHidden(modelId, hidden: false)
         model.setPinnedModelId(modelId)
     }
 
@@ -254,6 +409,18 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
 final class AppModel: ObservableObject {
     let objectWillChange = ObservableObjectPublisher()
     var onUpdate: (() -> Void)?
+
+    private var cancellables = Set<AnyCancellable>()
+    private var autoRefreshTask: Task<Void, Never>?
+
+    init() {
+        NotificationCenter.default.publisher(for: UserDefaults.didChangeNotification)
+            .receive(on: RunLoop.main)
+            .sink { [weak self] _ in
+                self?.restartAutoRefreshIfNeeded()
+            }
+            .store(in: &cancellables)
+    }
 
     private func notifyChanged() {
         objectWillChange.send()
@@ -304,6 +471,8 @@ final class AppModel: ObservableObject {
 
     func bootstrap() async {
         authState = tokenStore.loadAuthState()
+        restartAutoRefreshIfNeeded()
+
         if authState != nil {
             await refreshNow()
         }
@@ -321,6 +490,7 @@ final class AppModel: ObservableObject {
             tokenStore.saveAuthState(newState)
             authState = newState
             currentAccessToken = nil
+            restartAutoRefreshIfNeeded()
 
             AppLog.app.info("Sign-in completed; refreshing status")
             await refreshNow()
@@ -337,13 +507,24 @@ final class AppModel: ObservableObject {
         snapshot = nil
         currentAccessToken = nil
         authState = nil
+        restartAutoRefreshIfNeeded()
 
         tokenStore.deleteAuthState()
         await languageServer.stop()
     }
 
+    func prepareForQuit() async {
+        autoRefreshTask?.cancel()
+        autoRefreshTask = nil
+        await languageServer.stop()
+    }
+
     func refreshNow() async {
         guard let authState else {
+            return
+        }
+
+        if isRefreshing {
             return
         }
 
@@ -364,7 +545,14 @@ final class AppModel: ObservableObject {
 
             let statusData = try await connection.client.getUserStatus(accessToken: accessToken)
             let parsed = try QuotaParser.parseUserStatusJSON(statusData)
-            snapshot = parsed.withPinnedModelId(pinnedModelId)
+            let merged = parsed.withPinnedModelId(pinnedModelId)
+            snapshot = merged
+
+            let known = merged.models
+                .map { KnownModel(modelId: $0.modelId, label: $0.label) }
+                .sorted { $0.label.localizedStandardCompare($1.label) == .orderedAscending }
+            AppSettings.saveKnownModels(known)
+
             AppLog.app.debug("Refresh succeeded")
 
         } catch {
@@ -402,6 +590,33 @@ final class AppModel: ObservableObject {
             return "\(prefix): \(String(describing: error))"
         }
         return "\(prefix): \(description)"
+    }
+
+    private func restartAutoRefreshIfNeeded() {
+        autoRefreshTask?.cancel()
+        autoRefreshTask = nil
+
+        guard isSignedIn else {
+            return
+        }
+
+        let interval = AppSettings.refreshCadence.seconds
+        guard interval > 0 else {
+            return
+        }
+
+        autoRefreshTask = Task { [weak self] in
+            while let self, !Task.isCancelled {
+                try? await Task.sleep(nanoseconds: UInt64(interval * 1_000_000_000))
+                if Task.isCancelled {
+                    break
+                }
+                if !self.isSignedIn {
+                    break
+                }
+                await self.refreshNow()
+            }
+        }
     }
 }
 
@@ -1327,6 +1542,8 @@ struct PromptCredits {
 
 struct QuotaSnapshot {
     let timestamp: Date
+    let accountEmail: String?
+    let planLabel: String?
     let promptCredits: PromptCredits?
     let models: [ModelQuota]
 
@@ -1373,7 +1590,14 @@ struct QuotaSnapshot {
     }
 
     func withPinnedModelId(_ pinnedModelId: String?) -> QuotaSnapshot {
-        QuotaSnapshot(timestamp: timestamp, promptCredits: promptCredits, models: models, pinnedModelId: pinnedModelId)
+        QuotaSnapshot(
+            timestamp: timestamp,
+            accountEmail: accountEmail,
+            planLabel: planLabel,
+            promptCredits: promptCredits,
+            models: models,
+            pinnedModelId: pinnedModelId
+        )
     }
 }
 
@@ -1386,6 +1610,16 @@ enum QuotaParser {
 
         let planStatus = userStatus["planStatus"] as? [String: Any]
         let planInfo = (planStatus?["planInfo"] as? [String: Any])
+
+        let userInfo = userStatus["userInfo"] as? [String: Any]
+        let accountEmail = (userInfo?["email"] as? String)
+            ?? (userStatus["email"] as? String)
+            ?? (root["email"] as? String)
+
+        let planLabel = (planInfo?["planName"] as? String)
+            ?? (planInfo?["name"] as? String)
+            ?? (planStatus?["planName"] as? String)
+            ?? (planStatus?["tier"] as? String)
 
         var promptCredits: PromptCredits? = nil
         if let planStatus {
@@ -1455,7 +1689,14 @@ enum QuotaParser {
             )
         }
 
-        return QuotaSnapshot(timestamp: Date(), promptCredits: promptCredits, models: models, pinnedModelId: nil)
+        return QuotaSnapshot(
+            timestamp: Date(),
+            accountEmail: accountEmail,
+            planLabel: planLabel,
+            promptCredits: promptCredits,
+            models: models,
+            pinnedModelId: nil
+        )
     }
 }
 

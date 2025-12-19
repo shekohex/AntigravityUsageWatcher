@@ -6,17 +6,32 @@
 	objectVersion = 77;
 	objects = {
 
+/* Begin PBXBuildFile section */
+		F2A000000000000000000201 /* AntigravityUsageWatcherApp.swift in Sources */ = {isa = PBXBuildFile; fileRef = F2A000000000000000000103 /* AntigravityUsageWatcherApp.swift */; };
+		F2A000000000000000000202 /* AntigravityUsageWatcherMain.swift in Sources */ = {isa = PBXBuildFile; fileRef = F2A000000000000000000104 /* AntigravityUsageWatcherMain.swift */; };
+		F2A000000000000000000203 /* AppSettings.swift in Sources */ = {isa = PBXBuildFile; fileRef = F2A000000000000000000105 /* AppSettings.swift */; };
+		F2A000000000000000000204 /* DashboardWindowController.swift in Sources */ = {isa = PBXBuildFile; fileRef = F2A000000000000000000106 /* DashboardWindowController.swift */; };
+		F2A000000000000000000205 /* KeychainStore.swift in Sources */ = {isa = PBXBuildFile; fileRef = F2A000000000000000000107 /* KeychainStore.swift */; };
+		F2A000000000000000000206 /* SettingsViews.swift in Sources */ = {isa = PBXBuildFile; fileRef = F2A000000000000000000108 /* SettingsViews.swift */; };
+		F2A000000000000000000207 /* SettingsWindowController.swift in Sources */ = {isa = PBXBuildFile; fileRef = F2A000000000000000000109 /* SettingsWindowController.swift */; };
+		F2A000000000000000000208 /* StatusMenuView.swift in Sources */ = {isa = PBXBuildFile; fileRef = F2A00000000000000000010A /* StatusMenuView.swift */; };
+		F2A000000000000000000209 /* Assets.xcassets in Resources */ = {isa = PBXBuildFile; fileRef = F2A000000000000000000101 /* Assets.xcassets */; };
+/* End PBXBuildFile section */
+
 /* Begin PBXFileReference section */
 		F285074D2EF488AA00D6800C /* AntigravityUsageWatcher.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = AntigravityUsageWatcher.app; sourceTree = BUILT_PRODUCTS_DIR; };
+		F2A000000000000000000101 /* Assets.xcassets */ = {isa = PBXFileReference; lastKnownFileType = folder.assetcatalog; path = Assets.xcassets; sourceTree = "<group>"; };
+		F2A000000000000000000102 /* AntigravityUsageWatcher.entitlements */ = {isa = PBXFileReference; lastKnownFileType = text.plist.entitlements; path = AntigravityUsageWatcher.entitlements; sourceTree = "<group>"; };
+		F2A000000000000000000103 /* AntigravityUsageWatcherApp.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AntigravityUsageWatcherApp.swift; sourceTree = "<group>"; };
+		F2A000000000000000000104 /* AntigravityUsageWatcherMain.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AntigravityUsageWatcherMain.swift; sourceTree = "<group>"; };
+		F2A000000000000000000105 /* AppSettings.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AppSettings.swift; sourceTree = "<group>"; };
+		F2A000000000000000000106 /* DashboardWindowController.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DashboardWindowController.swift; sourceTree = "<group>"; };
+		F2A000000000000000000107 /* KeychainStore.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = KeychainStore.swift; sourceTree = "<group>"; };
+		F2A000000000000000000108 /* SettingsViews.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SettingsViews.swift; sourceTree = "<group>"; };
+		F2A000000000000000000109 /* SettingsWindowController.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SettingsWindowController.swift; sourceTree = "<group>"; };
+		F2A00000000000000000010A /* StatusMenuView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = StatusMenuView.swift; sourceTree = "<group>"; };
 /* End PBXFileReference section */
 
-/* Begin PBXFileSystemSynchronizedRootGroup section */
-		F285074F2EF488AA00D6800C /* AntigravityUsageWatcher */ = {
-			isa = PBXFileSystemSynchronizedRootGroup;
-			path = AntigravityUsageWatcher;
-			sourceTree = "<group>";
-		};
-/* End PBXFileSystemSynchronizedRootGroup section */
 
 /* Begin PBXFrameworksBuildPhase section */
 		F285074A2EF488AA00D6800C /* Frameworks */ = {
@@ -32,9 +47,26 @@
 		F28507442EF488AA00D6800C = {
 			isa = PBXGroup;
 			children = (
-				F285074F2EF488AA00D6800C /* AntigravityUsageWatcher */,
+				F2A000000000000000000100 /* AntigravityUsageWatcher */,
 				F285074E2EF488AA00D6800C /* Products */,
 			);
+			sourceTree = "<group>";
+		};
+		F2A000000000000000000100 /* AntigravityUsageWatcher */ = {
+			isa = PBXGroup;
+			children = (
+				F2A000000000000000000101 /* Assets.xcassets */,
+				F2A000000000000000000102 /* AntigravityUsageWatcher.entitlements */,
+				F2A000000000000000000103 /* AntigravityUsageWatcherApp.swift */,
+				F2A000000000000000000104 /* AntigravityUsageWatcherMain.swift */,
+				F2A000000000000000000105 /* AppSettings.swift */,
+				F2A000000000000000000106 /* DashboardWindowController.swift */,
+				F2A000000000000000000107 /* KeychainStore.swift */,
+				F2A000000000000000000108 /* SettingsViews.swift */,
+				F2A000000000000000000109 /* SettingsWindowController.swift */,
+				F2A00000000000000000010A /* StatusMenuView.swift */,
+			);
+			path = AntigravityUsageWatcher;
 			sourceTree = "<group>";
 		};
 		F285074E2EF488AA00D6800C /* Products */ = {
@@ -59,9 +91,6 @@
 			buildRules = (
 			);
 			dependencies = (
-			);
-			fileSystemSynchronizedGroups = (
-				F285074F2EF488AA00D6800C /* AntigravityUsageWatcher */,
 			);
 			name = AntigravityUsageWatcher;
 			packageProductDependencies = (
@@ -109,6 +138,7 @@
 			isa = PBXResourcesBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
+				F2A000000000000000000209 /* Assets.xcassets in Resources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -119,6 +149,14 @@
 			isa = PBXSourcesBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
+				F2A000000000000000000201 /* AntigravityUsageWatcherApp.swift in Sources */,
+				F2A000000000000000000202 /* AntigravityUsageWatcherMain.swift in Sources */,
+				F2A000000000000000000203 /* AppSettings.swift in Sources */,
+				F2A000000000000000000204 /* DashboardWindowController.swift in Sources */,
+				F2A000000000000000000205 /* KeychainStore.swift in Sources */,
+				F2A000000000000000000206 /* SettingsViews.swift in Sources */,
+				F2A000000000000000000207 /* SettingsWindowController.swift in Sources */,
+				F2A000000000000000000208 /* StatusMenuView.swift in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
