@@ -34,9 +34,6 @@ struct StatusMenuView: View {
 
             if model.isSignedIn {
                 if let snapshot {
-                    if showCredits, let credits = snapshot.promptCredits {
-                        creditsSection(credits)
-                    }
                     modelsSection(snapshot)
                 } else {
                     Text(model.isRefreshing ? "Loading…" : "No data yet")
@@ -105,6 +102,7 @@ struct StatusMenuView: View {
         return "Updated \(relative)"
     }
 
+/*
     @ViewBuilder
     private func creditsSection(_ credits: PromptCredits) -> some View {
         VStack(alignment: .leading, spacing: 6) {
@@ -116,6 +114,7 @@ struct StatusMenuView: View {
                 .monospacedDigit()
         }
     }
+*/
 
     @ViewBuilder
     private func modelsSection(_ snapshot: QuotaSnapshot) -> some View {

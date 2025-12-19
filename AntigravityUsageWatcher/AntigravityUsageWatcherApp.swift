@@ -1621,10 +1621,14 @@ enum QuotaParser {
             ?? (planStatus?["planName"] as? String)
             ?? (planStatus?["tier"] as? String)
 
-        var promptCredits: PromptCredits? = nil
+        let promptCredits: PromptCredits? = nil
+        /* 
+        // Flow/Flex credits logic removed as requested.
+        // Prompt credits are also deemed meaningless for now, so we skip parsing them.
         if let planStatus {
             let available = Int(truncating: (planStatus["availablePromptCredits"] as? NSNumber) ?? 0)
             let monthly = Int(truncating: (planInfo?["monthlyPromptCredits"] as? NSNumber) ?? 0)
+            
             if monthly > 0 {
                 let used = max(0, monthly - available)
                 promptCredits = PromptCredits(
@@ -1635,6 +1639,7 @@ enum QuotaParser {
                 )
             }
         }
+        */
 
         let cascade = userStatus["cascadeModelConfigData"] as? [String: Any]
         let rawModels = cascade?["clientModelConfigs"] as? [Any] ?? []
