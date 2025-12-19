@@ -1,2 +1,4 @@
 .ruff_cache
 .tmp_antigravity.iconset
+__pycache__/
+*.pyc
