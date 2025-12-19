@@ -129,6 +129,32 @@ Result: when we feed the minted access token into LS auth (`metadata.apiKey` + `
 
 ## 2025-12-18 — Menu bar app MVP (Swift)
 
+## 2025-12-19 — Debugging LS readiness + TLS
+
+- Added structured logging using `os.Logger` with categories (`app`, `oauth`, `language_server`, `network`).
+- Enabled verbose logging by default in Debug builds to unblock investigation.
+- Disabled App Sandbox for this app and removed sandbox entitlements to allow spawning Antigravity’s `language_server_macos_arm`.
+- Forwarded language server stdout/stderr into the Xcode console (prefixed as `ls(stdout)` / `ls(stderr)`), with best-effort token redaction.
+- Found that our protobuf `Metadata` handshake had `ideVersion = "0"`, which the language server rejects; updated it to a valid semver string (`0.0.0`).
+- Observed the language server reports it is listening on HTTPS/HTTP ports, but our client fails to complete HTTPS requests.
+  - The server logs show repeated `TLS handshake error ... EOF`, suggesting the client is aborting the handshake.
+  - Found the client was rejecting the cert with: `"localhost" certificate is not permitted for this usage`.
+  - Switched to strict certificate pinning: compare the server-presented certificate chain to the pinned `cert.pem` DER, bypassing SecTrust usage/EKU issues.
+- Found why Swift RPC differed from the working Python probe: Swift was using ad-hoc JSON bodies that did not follow Connect/proto JSON mapping.
+  - `google.protobuf.Timestamp` must be an RFC3339 string (not `{seconds: ...}`), which caused `SaveOAuthTokenInfo` to return HTTP 400.
+  - `GetUserStatus` must include full `Metadata` (including `apiKey`), otherwise LS reports "You are not logged into Antigravity".
+- Updated Swift client to use Connect JSON mapping (`Content-Type/Accept: application/json`) with RFC3339 expiry and full metadata, matching the successful curl experiment.
+
+Noise control while debugging:
+
+- Suppressed per-request logging for the `GetStatus` readiness probe and filtered the noisiest TLS handshake EOF spam lines.
+- Discovered Connect JSON endpoints reject a zero-length request body (even for empty messages like `GetStatus`), returning: `unmarshal message: zero-length payload is not a valid JSON object`.
+  - Fixed by sending `{}` when the JSON body would otherwise be empty.
+
+Outcome:
+
+- Sign-in, sign-out, language server bootstrap, and quota fetching are now working end-to-end on macOS.
+
 Implemented an end-to-end MVP inside the macOS app:
 
 - Menu bar UI: signed-out state, sign-in, refresh, model list, pin/unpin.
